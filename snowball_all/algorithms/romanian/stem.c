@@ -1,1 +1,0 @@
-stem_UTF_8.c

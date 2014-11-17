@@ -1,1 +1,0 @@
-stem_KOI8_R.h
