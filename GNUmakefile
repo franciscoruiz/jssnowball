@@ -5,21 +5,20 @@ libstemmer_algorithms = armenian basque catalan czech danish dutch english \
 			norwegian porter portuguese romanian \
 			russian spanish slovene swedish turkish
 
-java_src_generated = java/org/tartarus/snowball/ext
+java_src_generated = build/snowball_java_src/libstemmer_java/java/org/tartarus/snowball/ext
+JAVA_SOURCES = $(libstemmer_algorithms:%=$(java_src_generated)/%Stemmer.java)
+JS_TESTS_SRC = $(libstemmer_algorithms:%=tests/js/%Tests.js)
+JS_TESTS_HTML = $(libstemmer_algorithms:%=tests/%Tests.html)
 
-JAVA_SOURCES = $(libstemmer_algorithms:%=snowball_code/$(java_src_generated)/%Stemmer.java)
-JS_TESTS_SRC = $(libstemmer_algorithms:%=js_snowball/tests/js/%Tests.js)
-JS_TESTS_HTML = $(libstemmer_algorithms:%=js_snowball/tests/%Tests.html)
+all: tests/index.html tests/composite.html dist/Snowball.js
 
-all: js_snowball/index.html js_snowball/tests/composite.html js_snowball/lib/Snowball.js
-
-js_snowball/index.html: $(JAVA_SOURCES)
+tests/index.html: $(JAVA_SOURCES)
 	@echo "<!DOCTYPE html>" > $@
 	@echo "<html>" >> $@
 	@echo "<head>" >> $@
 	@echo "<meta charset=\"utf-8\">" | sed 's!^!\t!' >> $@
 	@echo "<title>Online Snowball stemmers demo</title>" | sed 's!^!\t!' >> $@
-	@echo "<script src=\"lib/Snowball.js\"></script>" | sed 's!^!\t!' >> $@
+	@echo "<script src=\"../dist/Snowball.js\"></script>" | sed 's!^!\t!' >> $@
 	@echo "<script>" | sed 's!^!\t!' >> $@
 	@echo "var Stem = (function() { var lang, testStemmer; return function(lng, word) {"	\
               "if (lng != lang) {lang = lng; testStemmer = new Snowball(lang);} "		\
@@ -56,7 +55,7 @@ js_snowball/index.html: $(JAVA_SOURCES)
 	@echo "</body>" >> $@
 	@echo "</html>" >> $@
 
-js_snowball/tests/composite.html: $(JS_TESTS_SRC) $(JS_TESTS_HTML)
+tests/composite.html: $(JS_TESTS_SRC) $(JS_TESTS_HTML)
 	@echo "<!DOCTYPE html>" > $@
 	@echo "<html>" >> $@
 	@echo "<head>" >> $@
@@ -81,7 +80,7 @@ js_snowball/tests/composite.html: $(JS_TESTS_SRC) $(JS_TESTS_HTML)
 	@echo "</body>" >> $@
 	@echo "</html>" >> $@
 
-js_snowball/tests/%Tests.html:
+tests/%Tests.html:
 	@echo "<!DOCTYPE html>" > $@
 	@echo "<html>" >> $@
 	@echo "<head>" >> $@
@@ -92,39 +91,39 @@ js_snowball/tests/%Tests.html:
 	@echo "<body>" >> $@
 	@echo "<div id=\"qunit\"></div>" | sed 's!^!\t!' >> $@
 	@echo "<script src=\"qunit/qunit-1.10.0.js\"></script>" | sed 's!^!\t!' >> $@
-	@echo "<script src=\"../lib/Snowball.js\"></script>" | sed 's!^!\t!' >> $@
+	@echo "<script src=\"../dist/Snowball.js\"></script>" | sed 's!^!\t!' >> $@
 	@echo "<script src=\"js/$*Tests.js\"></script>" | sed 's!^!\t!' >> $@
 	@echo "</body>" >> $@
 	@echo "</html>" >> $@
 
-js_snowball/tests/js/%Tests.js: snowball_all/algorithms/%/voc.txt snowball_code/stemwords
-	@mkdir -p js_snowball/tests/js
+tests/js/%Tests.js: build/snowball_all/algorithms/%/voc.txt build/snowball_code/stemwords
+	@mkdir -p tests/js
 	@echo "QUnit.config.hidepassed = true;" > $@
 	@echo "QUnit.config.blocking = false;" >> $@
 	@echo "var Stem = (function() { var testStemmer = new Snowball('$*'); return function(word) { "		\
               "testStemmer.setCurrent(word); testStemmer.stem(); return testStemmer.getCurrent();}})();" >> $@
 	@echo "Generating tests for $*"
-	@./snowball_code/stemwords -i snowball_all/algorithms/$*/voc.txt -l $* -p | 	 			\
+	@./build/snowball_code/stemwords -i build/snowball_all/algorithms/$*/voc.txt -l $* -p | 	 			\
 	       sed '/^\s\+\S*\s\+$$/d' | sed 's!\"!\\\"!g' | 							\
 	       sed 's!\s\+[->]\+\s\+!\"\), \"!' |								\
 	       sed 'h;G;s/\n/\", function\(\) {deepEqual\( Stem(\"/' | 						\
 	       sed 's!\"), \"! -> !' |										\
 	       sed 's!^!test\(\"!' | sed 's!$$!\"\);}\);!' >> $@
-	@total=`cat snowball_all/algorithms/$*/voc.txt | sed '/^$$/d' | wc -l`;					\
+	@total=`cat build/snowball_all/algorithms/$*/voc.txt | sed '/^$$/d' | wc -l`;					\
 	echo "QUnit.done(function( details ) {" 								\
 	     "test(\"Total tests generated equals total words count in voc.txt\", "				\
 	     "function() {deepEqual(details.total, $${total}); QUnit.config.done = []});});" >> $@
 
-snowball_code/stemwords: $(JAVA_SOURCES)
-	@cp snowball_code/GNUmakefile snowball_code/GNUmakefile_js_copy
-	@cp snowball_code/libstemmer/modules.txt snowball_code/libstemmer/modules_js_copy.txt
-	@sed -i 's!libstemmer\/modules\.txt!libstemmer\/modules_js_copy\.txt!' snowball_code/GNUmakefile_js_copy
-	@$(foreach a,$(libstemmer_algorithms), grep -q '\s*$(a)\s\+' snowball_code/libstemmer/modules_js_copy.txt || \
-	echo '$(a) UTF_8 $(a)' >> snowball_code/libstemmer/modules_js_copy.txt;)
-	@make -C snowball_code libstemmer_algorithms="$(subst $(eval), ,$(libstemmer_algorithms))" -f GNUmakefile_js_copy --no-print-directory stemwords
+build/snowball_code/stemwords: $(JAVA_SOURCES)
+	@cp build/snowball_code/GNUmakefile build/snowball_code/GNUmakefile_js_copy
+	@cp build/snowball_code/libstemmer/modules.txt build/snowball_code/libstemmer/modules_js_copy.txt
+	@sed -i 's!libstemmer\/modules\.txt!libstemmer\/modules_js_copy\.txt!' build/snowball_code/GNUmakefile_js_copy
+	@$(foreach a,$(libstemmer_algorithms), grep -q '\s*$(a)\s\+' build/snowball_code/libstemmer/modules_js_copy.txt || \
+	echo '$(a) UTF_8 $(a)' >> build/snowball_code/libstemmer/modules_js_copy.txt;)
+	@make -C build/snowball_code libstemmer_algorithms="$(subst $(eval), ,$(libstemmer_algorithms))" -f GNUmakefile_js_copy --no-print-directory stemwords
 
-js_snowball/lib/Snowball.js: $(JAVA_SOURCES) $(wildcard js_snowball/src/*.js)
-	@mkdir -p js_snowball/lib
+dist/Snowball.js: $(JAVA_SOURCES) $(wildcard src/*.js)
+	@mkdir -p dist
 	@echo "/*!" > $@
 	@echo " * Snowball JavaScript Library v0.4" >> $@
 	@echo " * http://snowball.tartarus.org/" >> $@
@@ -134,13 +133,13 @@ js_snowball/lib/Snowball.js: $(JAVA_SOURCES) $(wildcard js_snowball/src/*.js)
 	@echo " * http://www.opensource.org/licenses/bsd-license.html" >> $@
 	@echo " */" >> $@
 	@echo "function Snowball(lng) {" >> $@
-	@cat js_snowball/src/Among.js | sed '1,9d' | sed 's!^!\t!' >> $@
-	@cat js_snowball/src/SnowballProgram.js | sed '1,9d' | sed 's!^!\t!' >> $@
+	@cat src/Among.js | sed '1,9d' | sed 's!^!\t!' >> $@
+	@cat src/SnowballProgram.js | sed '1,9d' | sed 's!^!\t!' >> $@
 	@echo "var stemFactory = {" | sed 's!^!\t!' >> $@
 	@$(foreach dir,$(libstemmer_algorithms), 							\
 	echo $${separator_between_stemmers} >> $@; separator_between_stemmers=","; 			\
 	echo "$(dir)Stemmer : function() {" | sed 's!^!\t\t!' | sed 's!$$!\n!' >> $@;			\
-	cat snowball_code/$(java_src_generated)/$(dir)Stemmer.java | sed '1,11d' | sed 's!^!\t\t!' >> $@;)
+	cat $(java_src_generated)/$(dir)Stemmer.java | sed '1,11d' | sed 's!^!\t\t!' >> $@;)
 	@echo "}" | sed 's!^!\n\t!' >> $@;
 	@echo "var stemName = lng.toLowerCase() + \"Stemmer\";" | sed 's!^!\t!' >> $@
 	@echo "return new stemFactory[stemName]();" | sed 's!^!\t!' >> $@
@@ -148,22 +147,21 @@ js_snowball/lib/Snowball.js: $(JAVA_SOURCES) $(wildcard js_snowball/src/*.js)
 	@grep -q 'copy_from\|in_range\|in_range_b\|out_range\|out_range_b\|assign_to\|eq_v[^_]' $@ && \
 	echo 'Error: possible usage of not implemented method in SnowballProgramm.js' ; [ $$? -ne 0 ]
 
-snowball_code/algorithms/%/stem_Unicode.sbl: snowball_code/algorithms/%/stem_ISO_8859_1.sbl
+build/snowball_code/algorithms/%/stem_Unicode.sbl: build/snowball_code/algorithms/%/stem_ISO_8859_1.sbl
 	cp $^ $@
 
-snowball_code/$(java_src_generated)/%Stemmer.java: snowball_code/algorithms/%/stem_Unicode.sbl \
-	    $(wildcard snowball_code/compiler/*.c) $(wildcard snowball_code/compiler/*.h)
+$(java_src_generated)/%Stemmer.java: build/snowball_code/algorithms/%/stem_Unicode.sbl \
+	    $(wildcard build/snowball_code/compiler/*.c) $(wildcard build/snowball_code/compiler/*.h)
 	@target=`echo "$@" | sed 's![^/]*/!!'`; \
-	make -C snowball_code --no-print-directory $${target}
+	make -C build/snowball_code --no-print-directory $${target}
 
 # Environment test - generate java sources and compare with downloaded. Used in ./configure
 
 java_src_check: $(JAVA_SOURCES)
-	diff -r $(JAVA_SRC_DWNLD)/libstemmer_java/$(java_src_generated) snowball_code/$(java_src_generated)
+	diff -r $(JAVA_SRC_DWNLD)/libstemmer_java/$(java_src_generated) $(java_src_generated)
 
 clean:
-	-make -C snowball_code -f GNUmakefile_js_copy libstemmer_algorithms="$(subst $(eval), ,$(libstemmer_algorithms))" --no-print-directory clean
-	-rm js_snowball/lib/Snowball.js js_snowball/tests/js/*Tests.js		\
-		js_snowball/tests/composite.html js_snowball/tests/*Tests.html	\
-		js_snowball/index.html snowball_code/GNUmakefile_js_copy		\
-		snowball_code/libstemmer/modules_js_copy.txt
+	-make -C build/snowball_code -f GNUmakefile_js_copy libstemmer_algorithms="$(subst $(eval), ,$(libstemmer_algorithms))" --no-print-directory clean
+	-rm dist \
+		tests/js/*Tests.js tests/composite.html tests/*Tests.html tests/index.html \
+		build
